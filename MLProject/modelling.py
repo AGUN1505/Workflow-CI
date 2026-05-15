@@ -31,15 +31,24 @@ def train(data_path: str):
     y_train = pd.read_csv(f"{data_path}/y_train.csv").squeeze()
     y_test = pd.read_csv(f"{data_path}/y_test.csv").squeeze()
 
-    mlflow.set_experiment("workflow-ci-experiment")
+    # IMPORTANT:
+    # When executed via `mlflow run MLProject/`, MLflow Projects already creates
+    # an active run and sets the experiment. Calling set_experiment/start_run again
+    # can cause experiment/run ID conflicts.
+    mlflow.sklearn.autolog()
 
-    with mlflow.start_run():
-        mlflow.sklearn.autolog()
+    def _fit_and_log():
         model = RandomForestClassifier(n_estimators=100, random_state=42)
         model.fit(X_train, y_train)
         y_pred = model.predict(X_test)
         print(f"Accuracy : {accuracy_score(y_test, y_pred):.4f}")
         print(f"F1-Score : {f1_score(y_test, y_pred, average='weighted'):.4f}")
+
+    if mlflow.active_run() is None:
+        with mlflow.start_run():
+            _fit_and_log()
+    else:
+        _fit_and_log()
 
 
 if __name__ == "__main__":
